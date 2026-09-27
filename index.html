@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>vrslink</title>
+<style>
+  :root{ --bg:#0d1117; --ink:#e8e3d8; --dim:#8a93a0; --amber:#FFB454; --live:#7fd49b; --err:#ff7a6b; --line:#232b36; }
+  *{ box-sizing:border-box }
+  html,body{ margin:0; height:100%; background:#000; color:var(--ink);
+             font:18px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif; overflow:hidden }
+  button,input{ font:inherit }
+  button:focus-visible,input:focus-visible{ outline:3px solid var(--amber); outline-offset:3px }
+
+  /* вход */
+  #vhod{ position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center;
+         padding:calc(env(safe-area-inset-top,0px) + 24px) 24px calc(env(safe-area-inset-bottom,0px) + 24px) }
+  .karta{ width:min(520px,100%) }
+  .znak{ font-size:clamp(56px,11vw,96px); font-weight:800; letter-spacing:-.04em; line-height:.9; margin:0 }
+  .znak i{ font-style:normal; color:var(--amber) }
+  .podpis{ color:var(--dim); margin:10px 0 30px }
+  label{ display:block; color:var(--dim); font-size:15px; margin:18px 0 6px }
+  input{ width:100%; background:#0a0e13; color:var(--ink); border:2px solid var(--line); border-radius:14px;
+         padding:16px 18px; font-size:24px; letter-spacing:.14em }
+  input::placeholder{ color:#4c5561; letter-spacing:.04em; font-size:18px }
+  .glavnaya{ margin-top:26px; width:100%; min-height:68px; border:0; border-radius:16px; background:var(--amber);
+             color:#1a1206; font-weight:800; font-size:21px; cursor:pointer }
+  .zamechanie{ color:var(--dim); font-size:14px; margin-top:16px; min-height:1.4em }
+
+  /* экран */
+  #ekran{ position:fixed; inset:0; display:none; background:#000 }
+  video{ width:100%; height:100%; object-fit:contain; background:#000 }
+  #shtorka{ position:absolute; left:50%; transform:translateX(-50%);
+            bottom:calc(env(safe-area-inset-bottom,0px) + 18px);
+            display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center;
+            background:rgba(13,17,23,.82); border:1px solid var(--line); border-radius:20px; padding:10px;
+            backdrop-filter:blur(6px); transition:opacity .25s ease; width:max-content; max-width:calc(100% - 24px) }
+  #shtorka.skryt{ opacity:0; pointer-events:none }
+  .sost{ display:flex; align-items:center; gap:10px; padding:0 8px; color:var(--dim); font-size:15px; min-width:150px }
+  .tochka{ width:12px; height:12px; border-radius:50%; background:var(--amber); flex:none }
+  .tochka.zhivo{ background:var(--live) } .tochka.beda{ background:var(--err) }
+  .tumbler{ min-height:60px; min-width:60px; padding:0 18px; border-radius:14px; border:2px solid var(--line);
+            background:#0a0e13; color:var(--ink); cursor:pointer; font-size:16px }
+  .tumbler[aria-pressed="true"]{ border-color:var(--amber); color:var(--amber) }
+  .tumbler.vyhod{ color:var(--err) }
+  #preduprezhdenie{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 18px); left:50%; transform:translateX(-50%);
+                    background:rgba(13,17,23,.9); border:2px solid var(--amber); border-radius:14px; padding:12px 18px;
+                    font-size:15px; max-width:min(560px,calc(100% - 24px)); display:none }
+  /* рация шлема: всегда на месте, шторка её не прячет */
+  #raciya{ position:absolute; right:calc(env(safe-area-inset-right,0px) + 22px);
+           bottom:calc(env(safe-area-inset-bottom,0px) + 22px); width:96px; height:96px; border-radius:50%;
+           border:3px solid rgba(255,180,84,.7); background:rgba(13,17,23,.6); color:var(--amber);
+           font-size:15px; font-weight:800; letter-spacing:.06em; cursor:pointer; touch-action:none;
+           -webkit-user-select:none; user-select:none; transition:transform .08s ease, background .12s ease }
+  #raciya.on{ background:rgba(255,180,84,.35); transform:scale(1.1); border-color:var(--amber) }
+  #raciya.glukh{ border-style:dashed; opacity:.55 }
+  #titr{ position:absolute; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom,0px) + 130px);
+         max-width:min(820px,calc(100% - 40px)); background:rgba(13,17,23,.85); border-left:4px solid var(--amber);
+         border-radius:10px; padding:10px 16px; font-size:20px; display:none }
+  @media (prefers-reduced-motion: reduce){ #shtorka, #raciya{ transition:none } }
+</style>
+</head>
+<body>
+
+<section id="vhod">
+  <div class="karta">
+    <h1 class="znak">vrs<i>link</i></h1>
+    <p class="podpis">Студия с телефона — в шлеме: композит, Плюс и звук эфира. Без роли камеры.</p>
+    <label for="par">Код связи — 8 знаков из окна рубки</label>
+    <input id="par" maxlength="8" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="например fb8pv6hf">
+    <label for="room">Комната — если студия не найдётся сама</label>
+    <input id="room" maxlength="24" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="найдётся сама">
+    <button class="glavnaya" id="pusk">Подключить</button>
+    <div class="zamechanie" id="zam"></div>
+  </div>
+</section>
+
+<section id="ekran">
+  <video id="vid" autoplay playsinline></video>
+  <audio id="uho" autoplay muted></audio>
+  <div id="titr"></div>
+  <button id="raciya" aria-label="рация: держи и говори Плюсу">РАЦИЯ</button>
+  <div id="preduprezhdenie">Плюс «в ухо» теперь звучит в шлеме — BeamXR его услышит, и зрители тоже.</div>
+  <div id="shtorka">
+    <div class="sost"><span class="tochka" id="tochka"></span><span id="sost">ищу студию…</span></div>
+    <button class="tumbler" id="tEfir" aria-pressed="true">Звук эфира</button>
+    <button class="tumbler" id="tUho" aria-pressed="false">Плюс в шлем</button>
+    <button class="tumbler" id="tFull" aria-pressed="false">Во весь экран</button>
+    <button class="tumbler vyhod" id="tStop">Отключить</button>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js"></script>
+<script>
+'use strict';
+/* vrslink — зритель СКРИН-СТУДИИ для шлема (Quest). Студия на телефоне
+   отдаёт программу целиком: видео композита + звук эфира одним звонком и
+   голос Плюса «в ухо» вторым. Комнату vrslink узнаёт из того же ящика
+   ntfy.sh, куда рубка кладёт адреса: код связи один на всё. */
+const $ = id => document.getElementById(id);
+const LS = {
+  get: k => { try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } },
+  set: (k, v) => { try{ localStorage.setItem(k, v); }catch(e){} },
+};
+$('par').value = LS.get('vrslink-par');
+$('room').value = LS.get('vrslink-room');
+
+let peer = null, conn = null, want = false, retryT = null, hideT = null, storozhT = null;
+
+function sost(t, vid){
+  $('sost').textContent = t;
+  $('tochka').className = 'tochka' + (vid === 'zhivo' ? ' zhivo' : vid === 'beda' ? ' beda' : '');
+  $('zam').textContent = t;
+}
+
+async function roomFromBox(par){
+  try{
+    const r = await fetch('https://ntfy.sh/skrin-par-' + encodeURIComponent(par) + '/json?poll=1&since=12h',
+                          { cache: 'no-store' });
+    const lines = (await r.text()).trim().split('\n').filter(Boolean);
+    for (let i = lines.length - 1; i >= 0; i--){
+      let m, d;
+      try{ m = JSON.parse(lines[i]); d = JSON.parse(m.message); }catch(e){ continue; }
+      if (d && d.room) return String(d.room);
+    }
+  }catch(e){}
+  return '';
+}
+
+function peerReady(){
+  return new Promise((res, rej) => {
+    if (peer && !peer.destroyed && peer.open) return res(peer);
+    try{ if (peer) peer.destroy(); }catch(e){}
+    peer = new Peer({ debug: 0, config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } });
+    peer.on('open', () => res(peer));
+    peer.on('error', e => {
+      if (e && e.type === 'peer-unavailable'){ sost('студии с этой комнатой нет — жду', 'beda'); snova(4000); return; }
+      if (!peer.open) rej(e);
+      else { sost('связь с сервером встреч дрогнула — повторю', 'beda'); snova(4000); }
+    });
+    peer.on('call', naZvonok);
+    peer.on('disconnected', () => { try{ peer.reconnect(); }catch(e){} });
+  });
+}
+
+function naZvonok(c){
+  c.answer();
+  const kind = (c.metadata && c.metadata.kind) || 'efir';
+  c.on('stream', st => {
+    if (kind === 'uho'){ $('uho').srcObject = st; return; }
+    const v = $('vid');
+    v.srcObject = st;
+    v.muted = $('tEfir').getAttribute('aria-pressed') !== 'true';
+    v.play().catch(() => { sost('нажми на экран — браузер ждёт жеста для звука', 'beda'); });
+    sost('в эфире студии', 'zhivo');
+    pokazat();
+  });
+  c.on('close', () => { if (kind !== 'uho' && want){ sost('картинка оборвалась — переподключаюсь'); snova(2000); } });
+}
+
+function snova(ms){
+  clearTimeout(retryT);
+  if (want) retryT = setTimeout(podklyuchit, ms);
+}
+
+async function podklyuchit(){
+  clearTimeout(retryT);
+  clearTimeout(storozhT);
+  const par = $('par').value.trim().toLowerCase();
+  if (!/^[a-z2-9]{8}$/.test(par)){ sost('код связи — 8 знаков, как в окне рубки', 'beda'); return; }
+  LS.set('vrslink-par', par);
+  const rucnaya = $('room').value.trim();
+  LS.set('vrslink-room', rucnaya);
+  want = true;
+  $('vhod').style.display = 'none';
+  $('ekran').style.display = 'block';
+  sost('ищу студию…');
+  const room = rucnaya || await roomFromBox(par);
+  if (!room){ sost('комнаты нет: на телефоне СВЯЗЬ → Я СОБИРАЮ', 'beda'); snova(5000); return; }
+  try{ await peerReady(); }
+  catch(e){ sost('нет связи с сервером встреч — повторю', 'beda'); snova(5000); return; }
+  try{ if (conn) conn.close(); }catch(e){}
+  sost('стучусь в комнату ' + room + '…');
+  conn = peer.connect('skrin-' + room, { metadata: { role: 'zritel', par, name: 'vrslink' }, reliable: true });
+  conn.on('data', d => {
+    if (!d) return;
+    if (d.op === 'zritel-net'){ want = false; sost('студия не пустила: ' + (d.why || 'код не тот'), 'beda'); vernut(); }
+    if (d.op === 'zritel-da') sost('студия пустила — жду картинку…');
+  });
+  conn.on('close', () => { if (want){ sost('студия закрыла связь — переподключаюсь'); snova(3000); } });
+  storozhT = setTimeout(() => { if (want && !$('vid').srcObject){ sost('ответа нет — пробую снова'); snova(0); } }, 15000);
+}
+
+function vernut(){
+  $('ekran').style.display = 'none';
+  $('vhod').style.display = 'flex';
+}
+
+function pokazat(){
+  $('shtorka').classList.remove('skryt');
+  clearTimeout(hideT);
+  hideT = setTimeout(() => { if ($('vid').srcObject) $('shtorka').classList.add('skryt'); }, 3500);
+}
+
+function tumbler(el, v){ el.setAttribute('aria-pressed', v ? 'true' : 'false'); }
+
+/* ---------- РАЦИЯ ШЛЕМА ----------
+   Держишь — браузер шлема слушает микрофон и распознаёт речь; отпустил —
+   текст уходит в студию тем же путём, что ухо поля, и дальше к Плюсу.
+   Нет распознавания в браузере — кнопка пунктиром и честно говорит, куда
+   идти: в консоль Claude Code на ноуте (Remote Control, диктовка клавиатуры). */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, recBuf = '', recHeld = false, titrT = null;
+if (!SR) $('raciya').classList.add('glukh');
+function titr(t, ms){
+  const el = $('titr');
+  el.textContent = t; el.style.display = t ? 'block' : 'none';
+  clearTimeout(titrT);
+  if (t && ms) titrT = setTimeout(() => { el.style.display = 'none'; }, ms);
+}
+function raciyaDown(e){
+  if (e) e.preventDefault();
+  pokazat();
+  if (!SR){ titr('в браузере шлема нет распознавания речи — говори Плюсу в консоли на ноуте', 5000); return; }
+  if (!conn || !conn.open){ titr('студия не на связи — рация некуда', 3000); return; }
+  recHeld = true; recBuf = '';
+  $('raciya').classList.add('on');
+  try{
+    rec = new SR();
+    rec.lang = 'ru-RU'; rec.continuous = true; rec.interimResults = true;
+    rec.onresult = ev => {
+      let fin = '', mid = '';
+      for (let i = 0; i < ev.results.length; i++){
+        const r = ev.results[i];
+        if (r.isFinal) fin += r[0].transcript + ' '; else mid += r[0].transcript;
+      }
+      recBuf = fin.trim();
+      titr('🎙 ' + (recBuf + ' ' + mid).trim());
+    };
+    rec.onerror = ev => { titr('рация: ' + (ev.error === 'not-allowed' ? 'нет доступа к микрофону' : ev.error), 4000); };
+    rec.onend = () => { if (!recHeld) otpravit(); };
+    rec.start();
+  }catch(err){ titr('рация не запустилась: ' + (err.message || err), 4000); recHeld = false; $('raciya').classList.remove('on'); }
+}
+function raciyaUp(){
+  if (!recHeld) return;
+  recHeld = false;
+  $('raciya').classList.remove('on');
+  /* последнее слово распознавание отдаёт с опозданием — даём хвост */
+  setTimeout(() => { try{ rec && rec.stop(); }catch(e){ otpravit(); } }, 700);
+}
+function otpravit(){
+  const t = recBuf.trim();
+  rec = null; recBuf = '';
+  if (!t){ titr('рация: не расслышал', 2500); return; }
+  try{ conn.send({ op: 'earText', text: t }); titr('→ Плюсу: ' + t, 4000); }
+  catch(e){ titr('не отправилось — связь со студией', 3000); }
+}
+$('raciya').addEventListener('pointerdown', e => { raciyaDown(e); try{ $('raciya').setPointerCapture(e.pointerId); }catch(er){} });
+$('raciya').addEventListener('pointerup', raciyaUp);
+$('raciya').addEventListener('pointercancel', raciyaUp);
+$('raciya').addEventListener('contextmenu', e => e.preventDefault());
+
+$('vid').addEventListener('playing', () => { sost('в эфире студии', 'zhivo'); pokazat(); });
+$('pusk').addEventListener('click', podklyuchit);
+$('par').addEventListener('keydown', e => { if (e.key === 'Enter') podklyuchit(); });
+$('ekran').addEventListener('pointerdown', () => { pokazat(); const v = $('vid'); if (v.paused) v.play().catch(() => {}); });
+$('tEfir').addEventListener('click', () => {
+  const on = $('tEfir').getAttribute('aria-pressed') !== 'true';
+  tumbler($('tEfir'), on);
+  $('vid').muted = !on;
+});
+$('tUho').addEventListener('click', () => {
+  const on = $('tUho').getAttribute('aria-pressed') !== 'true';
+  tumbler($('tUho'), on);
+  $('uho').muted = !on;
+  if (on) $('uho').play().catch(() => {});
+  $('preduprezhdenie').style.display = on ? 'block' : 'none';
+});
+$('tFull').addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  else document.documentElement.requestFullscreen().catch(() => {});
+});
+document.addEventListener('fullscreenchange', () => tumbler($('tFull'), !!document.fullscreenElement));
+$('tStop').addEventListener('click', () => {
+  want = false;
+  clearTimeout(retryT);
+  clearTimeout(storozhT);
+  try{ if (conn) conn.close(); }catch(e){}
+  $('vid').srcObject = null; $('uho').srcObject = null;
+  sost('отключено');
+  vernut();
+});
+</script>
+</body>
+</html>
